@@ -2,7 +2,6 @@ import os
 import sys
 import argparse
 import subprocess
-from colorama import init, Fore, Back, Style
 
 
 def get_args():
@@ -42,53 +41,15 @@ def ros2_build():
 
     print(f"[Build Options: workspace={ws_name}, package={args.package}]")
 
-    init(autoreset=True)  # coloramaの初期化
     # if package_name has value, build only the package
     if not args.package:
         print(f"[Build entire workspace: {ws_name}]")
         subprocess.run(["colcon", "build", "--symlink-install"])
 
-        # # subprocess.runの標準出力をcoloramaで色付け
-        # p = subprocess.Popen(["colcon", "build", "--symlink-install"],
-        #                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        # # もしその行の先頭の文字列が"Starting >>>"という文字列であれば、その行を緑色で表示
-        # # "Finished <<<"という文字列であれば、その行を緑色で表示
-        # # それ以外の行はそのまま表示. 直前の行に色がついていても, 次の行には影響しないようにする
-        # for line in p.stdout:
-        #     if line.startswith("Starting >>>"):
-        #         print(Fore.GREEN + line, end="", flush=True)
-        #     elif line.startswith("Finished <<<"):
-        #         print(Fore.GREEN + line, end="", flush=True)
-        #     else:
-        #         print(line, end="", flush=True)
-
-        # for line in p.stderr:
-
-        #     elif line.startswith("--- stderr:"):
-        #         print(Fore.RED + line, end="", flush=True)
-        #     else:
-        #         print(line, end="", flush=True)
-
     else:
         print(f"[Build package: {args.package}]")
         subprocess.run(["colcon", "build", "--symlink-install",
                         "--packages-up-to", args.package])
-
-        # p = subprocess.Popen(["colcon", "build", "--symlink-install",
-        #                       "--packages-up-to", args.package], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        # for line in p.stdout:
-        #     if line.startswith("Starting >>>"):
-        #         print(Fore.GREEN + line, end="", flush=True)
-        #     elif line.startswith("Finished <<<"):
-        #         print(Fore.GREEN + line, end="", flush=True)
-        #     else:
-        #         print(line, end="", flush=True)
-
-        # for line in p.stderr:
-        #     if line.startswith("--- stderr:"):
-        #         print(Fore.RED + line, end="", flush=True)
-        #     else:
-        #         print(line, end="", flush=True)
 
     os.chdir(orig_path)
 
