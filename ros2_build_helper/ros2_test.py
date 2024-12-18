@@ -1,11 +1,11 @@
-import os
-import sys
 import argparse
+import os
 import subprocess
+import sys
 
 use_colorama = True
 if use_colorama:
-    from colorama import init, Fore, Back, Style
+    from colorama import Back, Fore, Style, init
     init(autoreset=True)  # coloramaの初期化
 
 
@@ -21,6 +21,10 @@ def get_args():
                         help="Set package name (if this and -t option are not set, build entire workspace)")
     parser.add_argument("-t", "--this", action="store_true",
                         help="Build this package (if this and -p option are not set, build entire workspace)")
+    parser.add_argument("--show-result", action="store_true",
+                        help="Show the result of the build")
+    parser.add_argument("--show-result-verbose", action="store_true",
+                        help="Show the result of the build")
 
     return parser.parse_args()
 
@@ -41,6 +45,35 @@ def ros2_test():
         current_dir_name = os.path.basename(os.getcwd())
         print(f"Set this package {current_dir_name}")
         args.package = current_dir_name
+
+    if args.show_result_verbose:
+        print(f"Show the result of the build (verbose)")
+        # subprocess.run(["colcon", "test-result", "--all", "--verbose"])
+        if use_colorama:
+            popen = subprocess.Popen(["colcon", "test-result", "--all", "--verbose"],
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # 先頭が"   <<< failure message"という文字列のとき, その行を赤色で表示
+            # それ以外の行はそのまま表示
+            for line in popen.stdout:
+                if line.startswith("  <<< failure message"):
+                    print(Fore.RED + line, end="", flush=True)
+                elif line.startswith("    Code style divergence in file"):
+                    print(Fore.RED + line, end="", flush=True)
+                else:
+                    print(line, end="", flush=True)
+
+            for line in popen.stderr:
+                print(line, end="", flush=True)
+        else:
+            subprocess.run(["colcon", "test-result", "--all", "--verbose"])
+
+        exit(0)
+
+    if args.show_result:
+        print(f"Show the result of the build")
+        # colcon test-result --all
+        subprocess.run(["colcon", "test-result", "--all"])
+        exit(0)
 
     # Change directory to workspace
     os.chdir(ws_path)
