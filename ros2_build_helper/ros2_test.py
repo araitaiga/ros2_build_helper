@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument("-p", "--package", type=str,
                         help="Set package name (if this and -t option are not set, build entire workspace)")
     parser.add_argument("-t", "--this", action="store_true",
-                        help="Build this package (if this and -p option are not set, build entire workspace)")
+                        help="Test this package (if this and -p option are not set, build entire workspace)")
     parser.add_argument("--show-result", action="store_true",
                         help="Show the result of the build")
     parser.add_argument("--show-result-verbose", action="store_true",
@@ -47,6 +47,8 @@ def ros2_test():
         args.package = current_dir_name
 
     if args.show_result_verbose:
+        # Change directory to workspace
+        os.chdir(ws_path)
         print(f"Show the result of the build (verbose)")
         # subprocess.run(["colcon", "test-result", "--all", "--verbose"])
         if use_colorama:
@@ -59,6 +61,8 @@ def ros2_test():
                     print(Fore.RED + line, end="", flush=True)
                 elif line.startswith("    Code style divergence in file"):
                     print(Fore.RED + line, end="", flush=True)
+                elif line.startswith("    [  FAILED  ]"):
+                    print(Fore.RED + line, end="", flush=True)
                 else:
                     print(line, end="", flush=True)
 
@@ -67,25 +71,29 @@ def ros2_test():
         else:
             subprocess.run(["colcon", "test-result", "--all", "--verbose"])
 
+        os.chdir(orig_path)
         exit(0)
 
     if args.show_result:
         print(f"Show the result of the build")
+        # Change directory to workspace
+        os.chdir(ws_path)
         # colcon test-result --all
         subprocess.run(["colcon", "test-result", "--all"])
+        os.chdir(orig_path)
         exit(0)
 
     # Change directory to workspace
     os.chdir(ws_path)
 
-    print(f"[Build Options: workspace={ws_name}, package={args.package}]")
+    print(f"[Test Options: workspace={ws_name}, package={args.package}]")
 
     if use_colorama:
         popen = None
 
     # if package_name has value, build only the package
     if not args.package:
-        print(f"[Build entire workspace: {ws_name}]")
+        print(f"[Test entire workspace: {ws_name}]")
         if use_colorama:
             # subprocess.runの標準出力をcoloramaで色付け
             popen = subprocess.Popen(["colcon", "test"],
@@ -94,7 +102,7 @@ def ros2_test():
             subprocess.run(["colcon", "test"])
 
     else:
-        print(f"[Build package: {args.package}]")
+        print(f"[Test package: {args.package}]")
         if use_colorama:
             popen = subprocess.Popen(["colcon", "test",
                                       "--packages-up-to", args.package], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)

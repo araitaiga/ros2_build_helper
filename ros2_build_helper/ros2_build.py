@@ -1,7 +1,7 @@
-import os
-import sys
 import argparse
+import os
 import subprocess
+import sys
 
 
 def get_args():
@@ -9,6 +9,7 @@ def get_args():
     # -w: workspace name
     # -p: package name
     # -t: build this package
+    # -d: build with Debug option
     parser = argparse.ArgumentParser()
     parser.add_argument("-w", "--workspace", type=str,
                         help="Set workspace name (default: ros2_ws)")
@@ -16,6 +17,8 @@ def get_args():
                         help="Set package name (if this and -t option are not set, build entire workspace)")
     parser.add_argument("-t", "--this", action="store_true",
                         help="Build this package (if this and -p option are not set, build entire workspace)")
+    parser.add_argument("-d", "--debug", action="store_true",
+                        help="Build with Debug option")
     return parser.parse_args()
 
 
@@ -44,12 +47,24 @@ def ros2_build():
     # if package_name has value, build only the package
     if not args.package:
         print(f"[Build entire workspace: {ws_name}]")
-        subprocess.run(["colcon", "build", "--symlink-install"])
+        # if Debug option is set, build with Debug option
+        if args.debug:
+            subprocess.run(["colcon", "build", "--symlink-install",
+                           "--cmake-args", "-DCMAKE_BUILD_TYPE=Debug"])
+        else:
+            subprocess.run(["colcon", "build", "--symlink-install",
+                           "--cmake-args", "-DCMAKE_BUILD_TYPE=Release"])
 
     else:
         print(f"[Build package: {args.package}]")
-        subprocess.run(["colcon", "build", "--symlink-install",
-                        "--packages-up-to", args.package])
+        # subprocess.run(["colcon", "build", "--symlink-install",
+        #                 "--packages-up-to", args.package])
+        if args.debug:
+            subprocess.run(["colcon", "build", "--symlink-install",
+                            "--packages-up-to", args.package, "--cmake-args", "-DCMAKE_BUILD_TYPE=Debug"])
+        else:
+            subprocess.run(["colcon", "build", "--symlink-install",
+                            "--packages-up-to", args.package, "--cmake-args", "-DCMAKE_BUILD_TYPE=Release"])
 
     os.chdir(orig_path)
 
