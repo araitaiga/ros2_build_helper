@@ -5,7 +5,10 @@ import sys
 
 use_colorama = True
 if use_colorama:
-    from colorama import Back, Fore, Style, init
+    from colorama import Back
+    from colorama import Fore
+    from colorama import init
+    from colorama import Style
     init(autoreset=True)  # coloramaの初期化
 
 
@@ -21,10 +24,10 @@ def get_args():
                         help="Set package name (if this and -t option are not set, build entire workspace)")
     parser.add_argument("-t", "--this", action="store_true",
                         help="Test this package (if this and -p option are not set, build entire workspace)")
-    parser.add_argument("--show-result", action="store_true",
-                        help="Show the result of the build")
     parser.add_argument("--show-result-verbose", action="store_true",
                         help="Show the result of the build")
+    parser.add_argument("--console-direct", action="store_true",
+                        help="Use console_direct event handler for colcon test")
 
     return parser.parse_args()
 
@@ -74,15 +77,6 @@ def ros2_test():
         os.chdir(orig_path)
         exit(0)
 
-    if args.show_result:
-        print(f"Show the result of the build")
-        # Change directory to workspace
-        os.chdir(ws_path)
-        # colcon test-result --all
-        subprocess.run(["colcon", "test-result", "--all"])
-        os.chdir(orig_path)
-        exit(0)
-
     # Change directory to workspace
     os.chdir(ws_path)
 
@@ -91,24 +85,31 @@ def ros2_test():
     if use_colorama:
         popen = None
 
+    # コマンドオプションの設定
+    cmd_options = []
+    if args.console_direct:
+        cmd_options.extend(["--event-handler", "console_direct+"])
+
     # if package_name has value, build only the package
     if not args.package:
         print(f"[Test entire workspace: {ws_name}]")
+        base_cmd = ["colcon", "test"] + cmd_options
         if use_colorama:
             # subprocess.runの標準出力をcoloramaで色付け
-            popen = subprocess.Popen(["colcon", "test"],
+            popen = subprocess.Popen(base_cmd,
                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         else:
-            subprocess.run(["colcon", "test"])
+            subprocess.run(base_cmd)
 
     else:
         print(f"[Test package: {args.package}]")
+        base_cmd = ["colcon", "test", "--packages-up-to",
+                    args.package] + cmd_options
         if use_colorama:
-            popen = subprocess.Popen(["colcon", "test",
-                                      "--packages-up-to", args.package], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            popen = subprocess.Popen(base_cmd,
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         else:
-            subprocess.run(["colcon", "test",
-                            "--packages-up-to", args.package])
+            subprocess.run(base_cmd)
 
     if use_colorama:
         # もしその行の先頭の文字列が"Starting >>>"という文字列であれば、その行を緑色で表示
