@@ -4,131 +4,125 @@ import os
 import subprocess
 import sys
 
-use_colorama = True
-if use_colorama:
-    from colorama import Back
-    from colorama import Fore
-    from colorama import init
-    from colorama import Style
-    init(autoreset=True)  # coloramaの初期化
+from colorama import Fore, init
+
+init(autoreset=True)
+
+FAILURE_PREFIXES = (
+    "  <<< failure message",
+    "    Code style divergence in file",
+    "    [  FAILED  ]",
+)
+
+PROGRESS_PREFIXES = (
+    "Starting >>>",
+    "Finished <<<",
+)
 
 
 def get_args():
-    # get optional arguments
-    # -w: workspace name
-    # -p: package name
-    # -t: build this package
     parser = argparse.ArgumentParser()
-    parser.add_argument("-w", "--workspace", type=str,
-                        help="Set workspace name (default: ros2_ws)")
-    parser.add_argument("-p", "--package", type=str,
-                        help="Set package name (if this and -t option are not set, build entire workspace)")
-    parser.add_argument("-t", "--this", action="store_true",
-                        help="Test this package (if this and -p option are not set, build entire workspace)")
-    parser.add_argument("--show-result-verbose", action="store_true",
-                        help="Show the result of the build")
-    parser.add_argument("--console-direct", action="store_true",
-                        help="Use console_direct event handler for colcon test")
-
+    parser.add_argument(
+        "-w", "--workspace", type=str, help="Set workspace name (default: ros2_ws)"
+    )
+    parser.add_argument(
+        "-p",
+        "--package",
+        type=str,
+        help="Set package name (if this and -t option are not set, test entire workspace)",
+    )
+    parser.add_argument(
+        "-t",
+        "--this",
+        action="store_true",
+        help="Test this package (if this and -p option are not set, test entire workspace)",
+    )
+    parser.add_argument(
+        "--show-result-verbose",
+        action="store_true",
+        help="Show the result of the test",
+    )
+    parser.add_argument(
+        "--console-direct",
+        action="store_true",
+        help="Use console_direct event handler for colcon test",
+    )
+    parser.add_argument(
+        "-j", "--jobs", type=int, help="Number of parallel jobs for test"
+    )
     return parser.parse_args()
 
 
+def run_with_color(cmd: list[str], color_rules: dict[str, str]) -> None:
+    """コマンドを実行し、プレフィックスに応じて色付きで出力する。
+
+    color_rules: {"stdout" | "stderr": 出力ストリーム名} に対し、
+    各行のプレフィックスに応じた色を適用する。
+    """
+    popen = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+
+    for line in popen.stdout:
+        color = color_rules.get(
+            next((p for p in color_rules if line.startswith(p)), None)
+        )
+        if color:
+            print(color + line, end="", flush=True)
+        else:
+            print(line, end="", flush=True)
+
+    for line in popen.stderr:
+        color = color_rules.get(
+            next((p for p in color_rules if line.startswith(p)), None)
+        )
+        if color:
+            print(color + line, end="", flush=True)
+        else:
+            print(line, end="", flush=True)
+
+    popen.wait()
+
+
 def ros2_test():
-    # Save the current Path
     orig_path = os.getcwd()
-    # if ROS2_ROOT_WS is not exported, set $HOME to default value
+
     if not os.environ.get("ROS2_ROOT_WS"):
         os.environ["ROS2_ROOT_WS"] = os.environ["HOME"]
 
     args = get_args()
 
-    ws_name = args.workspace if args.workspace else "ros2_ws"
+    ws_name = args.workspace or "ros2_ws"
     ws_path = os.path.join(os.environ["ROS2_ROOT_WS"], ws_name)
 
+    package = args.package
     if args.this:
-        current_dir_name = os.path.basename(os.getcwd())
-        print(f"Set this package {current_dir_name}")
-        args.package = current_dir_name
+        package = os.path.basename(os.getcwd())
+        print(f"Set this package {package}")
 
-    if args.show_result_verbose:
-        # Change directory to workspace
-        os.chdir(ws_path)
-        print(f"Show the result of the build (verbose)")
-        # subprocess.run(["colcon", "test-result", "--all", "--verbose"])
-        if use_colorama:
-            popen = subprocess.Popen(["colcon", "test-result", "--all", "--verbose"],
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            # 先頭が"   <<< failure message"という文字列のとき, その行を赤色で表示
-            # それ以外の行はそのまま表示
-            for line in popen.stdout:
-                if line.startswith("  <<< failure message"):
-                    print(Fore.RED + line, end="", flush=True)
-                elif line.startswith("    Code style divergence in file"):
-                    print(Fore.RED + line, end="", flush=True)
-                elif line.startswith("    [  FAILED  ]"):
-                    print(Fore.RED + line, end="", flush=True)
-                else:
-                    print(line, end="", flush=True)
-
-            for line in popen.stderr:
-                print(line, end="", flush=True)
-        else:
-            subprocess.run(["colcon", "test-result", "--all", "--verbose"])
-
-        os.chdir(orig_path)
-        exit(0)
-
-    # Change directory to workspace
     os.chdir(ws_path)
 
-    print(f"[Test Options: workspace={ws_name}, package={args.package}]")
+    if args.show_result_verbose:
+        print("Show the result of the test (verbose)")
+        rules = {p: Fore.RED for p in FAILURE_PREFIXES}
+        run_with_color(["colcon", "test-result", "--all", "--verbose"], rules)
+        os.chdir(orig_path)
+        sys.exit(0)
 
-    if use_colorama:
-        popen = None
-
-    # コマンドオプションの設定
-    cmd_options = []
-    if args.console_direct:
-        cmd_options.extend(["--event-handler", "console_direct+"])
-
-    # if package_name has value, build only the package
-    if not args.package:
-        print(f"[Test entire workspace: {ws_name}]")
-        base_cmd = ["colcon", "test"] + cmd_options
-        if use_colorama:
-            # subprocess.runの標準出力をcoloramaで色付け
-            popen = subprocess.Popen(base_cmd,
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        else:
-            subprocess.run(base_cmd)
-
+    cmd = ["colcon", "test"]
+    if package:
+        cmd += ["--packages-up-to", package]
+        print(f"[Test package: {package} in {ws_name}]")
     else:
-        print(f"[Test package: {args.package}]")
-        base_cmd = ["colcon", "test", "--packages-up-to",
-                    args.package] + cmd_options
-        if use_colorama:
-            popen = subprocess.Popen(base_cmd,
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        else:
-            subprocess.run(base_cmd)
+        print(f"[Test entire workspace: {ws_name}]")
 
-    if use_colorama:
-        # もしその行の先頭の文字列が"Starting >>>"という文字列であれば、その行を緑色で表示
-        # "Finished <<<"という文字列であれば、その行を緑色で表示
-        # それ以外の行はそのまま表示. 直前の行に色がついていても, 次の行には影響しないようにする
-        for line in popen.stdout:
-            if line.startswith("Starting >>>"):
-                print(Fore.GREEN + line, end="", flush=True)
-            elif line.startswith("Finished <<<"):
-                print(Fore.GREEN + line, end="", flush=True)
-            else:
-                print(line, end="", flush=True)
+    if args.jobs:
+        cmd += ["--parallel-workers", str(args.jobs)]
+    if args.console_direct:
+        cmd += ["--event-handler", "console_direct+"]
 
-        for line in popen.stderr:
-            if line.startswith("--- stderr:"):
-                print(Fore.RED + line, end="", flush=True)
-            else:
-                print(line, end="", flush=True)
+    rules = {**{p: Fore.GREEN for p in PROGRESS_PREFIXES}, "--- stderr:": Fore.RED}
+    run_with_color(cmd, rules)
 
     os.chdir(orig_path)
 

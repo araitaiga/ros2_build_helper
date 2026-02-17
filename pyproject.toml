@@ -1,15 +1,20 @@
-[tool.poetry]
+[project]
 name = "ros2-build-helper"
 version = "0.1.0"
 description = ""
-authors = ["Taiga Arai <araitaiga2020.service@gmail.com>"]
+authors = [
+    { name = "Taiga Arai", email = "araitaiga2020.service@gmail.com" },
+]
 readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "colorama>=0.4.6",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-colorama = "^0.4.6"
-
+[project.scripts]
+ros2_build = "ros2_build_helper.ros2_build:ros2_build"
+ros2_test = "ros2_build_helper.ros2_test:ros2_test"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
