@@ -50,6 +50,9 @@ def get_args():
     parser.add_argument(
         "-j", "--jobs", type=int, help="Number of parallel jobs for test"
     )
+    parser.add_argument(
+        "--delete", action="store_true", help="Delete all test result files"
+    )
     return parser.parse_args()
 
 
@@ -101,6 +104,12 @@ def ros2_test():
         print(f"Set this package {package}")
 
     os.chdir(ws_path)
+
+    if args.delete:
+        print("Deleting all test result files...")
+        subprocess.run(["colcon", "test-result", "--all", "--delete"])
+        os.chdir(orig_path)
+        sys.exit(0)
 
     if args.show_result_verbose:
         print("Show the result of the test (verbose)")
