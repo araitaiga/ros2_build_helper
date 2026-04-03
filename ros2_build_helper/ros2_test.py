@@ -125,7 +125,7 @@ def ros2_test():
     else:
         print(f"[Test entire workspace: {ws_name}]")
 
-    if args.jobs:
+    if args.jobs is not None:
         cmd += ["--parallel-workers", str(args.jobs)]
     if args.console_direct:
         cmd += ["--event-handler", "console_direct+"]

@@ -46,7 +46,7 @@ def build_command(package: str | None, debug: bool, jobs: int | None) -> list[st
         "-DCMAKE_C_COMPILER_LAUNCHER=ccache",
         "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache",
     ]
-    if jobs:
+    if jobs is not None:
         cmd += [f"--parallel-workers", str(jobs)]
     return cmd
 
